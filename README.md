@@ -1,214 +1,185 @@
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Thanks again! Now go create something AMAZING! :D
--->
+# # Repeat Library Construction
+
+
+To construct reliable and comprehensive repeat libraries is a challenging task due to the variation in repeat structure and the difficulty of assembling repeats in genome sequences. As many elements vary considerably in genetic structure and sequence, the only means of achieving reliable results when identifying and annotating TEs is to practice complementary approaches. A flowchart describing our overall approach to TE identification is given in Fig. below. The specific methods for each type are detailed below. We employ **de novo** signature-based detection programs that rely upon prior knowledge concerning the sharing between different TEs of standard architectural features necessary for the process of transposition. 
+Examples of classification according to similarity to known TEs include records in databases like **Repbase** and protein profiles retrieved from the **Pfam** database. Unfortunately, only well-described TEs that have a robust structural signature can be discovered by these methods. Some TEs do not have such characteristics and thus cannot be distinguished by this approach. In contrast to homology-based methods, signature-based methods are less biased by similarity to the set of known elements.
+
+![Pipeline](https://github.com/ohan-Bioinfo/Identification-of-TEs/blob/f21ea5ff79128c616b542adc063d3b6991c4f15d/figure_1.jpg)
+## Class 1
+### LTR  (long terminal repeat) retrotransposons
+
+* In the animal genomes characterized so far, LTR retrotransposons represent the largest genomic mass among all repeats. As a result, it is very important to collect this type of element with high confidence. 
+*  Here, the elements are collected using  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html)  and filtered by  [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html)  LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 \citep{wheelernhmmer2013} and a set of TE-related pHMMs we provided from Pfam and GyDB \citep{finn2013pfam,llorens2010gypsy}.
+*  and other custom programs. Both LTRharvest and LTRdigest are in a package called  [GenomeTools](https://www.computer.org/csdl/trans/tb/2013/03/ttb2013030645-abs.html).
+
+Commands:
+* creating suffix array
+ ```sh
+gt suffixerator -db Input.fna -indexname Input.fna.index -dna -tis -suf -lcp -des -ssp
+```
+### LTRharvest
+searches the input sequence for direct repeats (LTRs) that are separated by a given distance (default 1 kb) and outside of which are apparent target site duplications (TSDs). Candidates distinguished by  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html)  were then passed to [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html).
+ ```sh
+gt ltrharvest -similar 0.00 -index Input.fna.index -gff3 Input.fna.ltrharvest.out.gff -seqids yes -v yes -mintsd 4 -maxtsd 20 -xdrop 5 -mat 2 -mis -2 -ins -3 -del -3 -minlenltr 100 -maxlenltr 1000 -mindistltr 100 -maxdistltr 15000 -vic 60
+```
+* -minlenltr: specify minimum length for each LTR
+* -maxlenltr: specify maximum length for each LTR
+* -mindistltr: specify minimum distance of LTR startpositions 
+* -maxdistltr: specify maximum distance of LTR startpositions
+* -similar: specify similarity threshold in range 
+* -mintsd: specify minimum length for each TSD
+* -maxtsd: specify maximum length for each TSD
+* -vic: specify the number of nucleotides (to the left and to the right that will be searched for TSDs and/or motifs around 5' and 3' boundary of predicted LTR retrotransposons
+* -mat: specify matchscore for extension-alignment
+* -mis: specify mismatchscore for extension-alignment
+* -ins: specify insertionscore for extension-alignment
+* -del: specify deletionscore for extension-alignment
+* -v: verbose mode
+* -seqids: use sequence descriptions instead of sequence numbers in GFF3 output
+* -gff3: specify GFF3 outputfilename
+### LTRdigest 
+LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 and a set of TE-related pHMMs we provided from  [Pfam](http://pfam.xfam.org/) and  [GyDB](https://gydb.org/index.php/Main_Page).
+ ```sh
+gt -j 20 ltrdigest -matchdescstart -outfileprefix Input.fna.LTRdigest -hmms Dfam.hmms -seqfile Input.fna
+```
+* -matchdescstart: exactly match the sequence descriptions from the input files for the desired sequence IDs (in GFF3) from the beginning to the first whitespace
+* -outfileprefix: prefix for output files (e.g. 'foo' will create files called 'foo_*.csv' and 'foo_*.fas') Omit this option for GFF3 output only.
+* -hmms: profile HMM models for domain detection (separate by spaces, finish with --) in HMMER3 format Omit this option to disable pHMM search.
+* -seqfile: set the sequence file from which to take the sequences Began extracting LTR_retrotransposon sequences from LTRharvest GFF
+
+**Began extracting LTR_retrotransposon sequences from LTRharvest GFF**
+```sh
+bedtools getfasta -fi Input.fna -s -bed Input.LTRharvest_LTR_retrotransposons.gff > Input.LTRharvest_LTR_retrotransposons.fasta 
+```
+#### Classification
+* Dfam Classification
+Using [HMMER](http://hmmer.org/)
+[Dfma](https://dfam.org/home) Data base.
+
+ ```sh
+nhmmer --tblout DfamClassification/Input.fna.nhmmer_DfamHits.table --incE 1e-05 -E 10 --cpu 20 Dfam_ERV_LTR.hmm LTRharvest_LTR_retrotransposons.fasta 
+```
+Began extracting best hits from nhmmer on Dfam results
+ [nhmmer_table2columns.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/nhmmer_table2columns.py)
+ ```sh
+ scripts/nhmmer_table2columns.py < Input.fna.nhmmer_DfamHits.table > Input.LTR_retrotransposon_DfamBestHits.tab
+ ```
+Adding best hits from nhmmer on Dfam results to LTRdigest GFF
+
+ ```sh
+gffAddAttr.py -gff Input.fna.LTRdigest.withORFs_gt_300bp.gff -attr dfamClassification -map Input.fna.LTR_retrotransposon_DfamBestHits.tab -mapKey ID -restrictType LTR_retrotransposon -replaceIfNone > Input.fna.LTRdigest.withDfam.gff 
+```
+[gffAddAttr.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/gffAddAttr.py)
+
+* RepBase Classification 
+Using [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) (Basic Local Alignment Search Tool)
+[RepBase](https://www.girinst.org/repbase/) data base.
+```sh
+tblastx -db Repbase_ERV_LTR.fasta -query Input.LTRharvest_LTR_retrotransposons.fasta -evalue 1e-05 -outfmt "7 qseqid sseqid pident length mismatch gapopen qst
+art qend sstart send evalue bitscore sstrand" -num_threads 20 -max_hsps 25 Output.fna.tblastx_Repbase.tab 
+```
+ Extracting best hits from tblastx on Repbase results, using [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py)
+```sh
+best_blast_hit.py < Output.fna.tblastx_Repbase.tab > Output.fna.LTR_retrotransposon_RepbaseBestHits.tab
+```
+
+
+### Non-LTR (long terminal repeat) retrotransposons
+Here, we began with the recognized genomic coordinates of LTR-RTs identified in the previous step. These candidates were masked with maskfasta from [BedTools](https://bedtools.readthedocs.io/en/latest/content/installation.html) to avoid conflicts or duplicate hits. 
+
+Next, open reading frame sequences were extracted from the masked genome by applying the getorf tool from [EMBOSS v6.4.0.0.](http://emboss.open-bio.org/html/use/ch02s07.html) The minimum ORF size was set to 500 bp in anticipation of detecting the apyrimidinic endonuclease (APE) gene (which is 600--800 bp in 97\% of inspected non-LTR elements)
+
+[MGEScan-non-LTR](https://github.com/COL-IU/mgescan) and hmmsearch from HMMER 3.0 with two separate hidden Markov model (HMM) profiles, one for the reverse transcriptase (RT) gene and one for the endonuclease (APE) gene, both of which are well conserved among non-LTR TEs.
+```sh
+mgescan nonltr <genome_dir> [--output=<data_dir>]
+```
+## Class 2
+All eukaryotic DNA transposons reported so far belong to a single category of elements which use the so-called ``cut-and-paste'' transposition mechanism, except Helitrons, which transpose by rolling-circle replication. Here, we employed methodologies for the detection of DNA transposons in the studied genomes based on the initial identification of TIR, and non-autonomous elements such as miniature inverted-repeat elements (MITEs) and helitron. 
 
 
 
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
+### [MiteFinder](https://github.com/jhu99/miteFinder)
+```sh
+miteFinder -input CInput.fna -output Output_Mite.fa -pattern_scoring pattern_scoring.txt -threshold 0.5
+```
+**Clustering**
+```sh
+CD-Hit -i Output_Mite.fa -o Clustered-Output_Mite.fa -c 0.8
+```
+**Classification**
+```sh
+blastn -task blastn -query SpeciesMITEs.fa -subject Clustered-Output_Mite.fa -outfmt 6 > out.csv
+```
+**Extract Best hits** [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py)
+```sh
+best_blast_hit.py < out.csv > bestHits
+```
+### [HelitronScanner](https://sourceforge.net/projects/helitronscanner/)
+HelitronScanner relies on sequence matches between trained local combinational variables (LCVs) and genome . Specifically, it scores 5$'$ and 3$'$ termini based on a training set of published Helitrons, and then merges the coordinates and scores for putative Helitron-like sequences. Multiple stages are examined, using the HelitronScanner tool, First, scan the **Head/Tail** with a default threshold is 1, which allows any matches to LCVs. The location scores are further filtered in the **pairends** stage, considering a threshold of 6 for Helitron’s both ends.
+```sh
+java -jar HelitronScanner.jar scanHead -lcv_filepath -genome -buffer_size -output HeadOut
+java -jar HelitronScanner.jar scanTail -lcv_filepath -genome -buffer_size -output TailOut
+java -jar HelitronScanner.jar pairends -hs HeadOut -ts TailOut -o Pair.fa -ht 6 -tt 6
+java -jar HelitronScanner.jar draw -pscore Pair.fa -genome genome.fa -output FinalHelitron.fa --pure
+ ```
+ **Clustering**
+ ```sh
+CD-Hit -i FinalHelitron.fa -o Clustered_Helitron.fa -c 0.8
+```
+**Classification**
+```sh
+blastn -task blastn -query SpeciesHelitron.fa -subject Clustered_Helitron.fa -outfmt 6 > out.csv
+```
+ **Extract Best hits** [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py)
+```sh
+best_blast_hit.py < out.csv > bestHits
+```
+## Combine Library
+libraries generated using the programs mentioned above merged, pluse the TE repeat sequences present in study species can be extracte from Dfam Consensus-20170127 and RepBase-20181026 using the script queryRepeatDatabase shipped with [RepeatMasker](http://www.repeatmasker.org/RepeatMasker.html). The results of both steps above were combined and processed for masking and annotation using [RepeatMasker](http://www.repeatmasker.org/RepeatMasker.html). 
 
 
+## Annotation, and mask the genome using [RepeatMasker](http://www.repeatmasker.org/RepeatMasker.html)
+```sh
+RepeatMasker -nolow -norna -a -s -gff -cutoff 225 -no_is -pa 40 -lib Combined_Lib.fa Input_Genome.fa -dir Output
+ ```
+* -cutoff: Sets cutoff score for masking repeats when using -lib
+* -no_is: Skips bacterial insertion element check
+* -lib: Allows use of a custom library
+* -norna: Does not mask small RNA (pseudo) genes 
+* -nolow: Does not mask low_complexity DNA or simple repeats
+* -a:Writes alignments in .align output file
+* -s: Slow search; 0-5% more sensitive, 2-3 times slower than default
+* -gff:Creates an additional Gene Feature Finding format output
 
-<!-- PROJECT LOGO -->
-<br />
-<p align="center">
-  <a href="https://github.com/othneildrew/Best-README-Template">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a>
+ Additionally, the copy number of each TE and determined genome coverage from the RepeatMasker output files (.out), which correspond to the number of insertions identified in the masked genomes. The remaining unmasked portion of the genome is scanned using [RepeatModeler](http://www.repeatmasker.org/RepeatModeler.html) with default settings to detect any unclassified TEs such as TIRs that were missed by structure-based TE identification. 
 
-  <h3 align="center">Best-README-Template</h3>
+## Collecting repetitive sequences missed by previouse Structure-based tools using [RepeatModeler](http://www.repeatmasker.org/RepeatModeler.html)
+The remaining sequence is then used as the input for RepeatModeler:
 
-  <p align="center">
-    An awesome README template to jumpstart your projects!
-    <br />
-    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Request Feature</a>
-  </p>
-</p>
+```sh
+BuildDatabase -name MaskedGenome Output.masked.fna
+RepeatModeler -database MaskedGenome
+ ```
 
-
-
-<!-- TABLE OF CONTENTS -->
-<details open="open">
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgements">Acknowledgements</a></li>
-  </ol>
-</details>
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
-
-There are many great README templates available on GitHub, however, I didn't find one that really suit my needs so I created this enhanced one. I want to create a README template so amazing that it'll be the last one you ever need -- I think this is it.
-
-Here's why:
-* Your time should be focused on creating something amazing. A project that solves a problem and helps others
-* You shouldn't be doing the same tasks over and over like creating a README from scratch
-* You should element DRY principles to the rest of your life :smile:
-
-Of course, no one template will serve all projects since your needs may be different. So I'll be adding more in the near future. You may also suggest changes by forking this repo and creating a pull request or opening an issue. Thanks to all the people have have contributed to expanding this template!
-
-A list of commonly used resources that I find helpful are listed in the acknowledgements.
-
-### Built With
-
-This section should list any major frameworks that you built your project using. Leave any add-ons/plugins for the acknowledgements section. Here are a few examples.
-* [Bootstrap](https://getbootstrap.com)
-* [JQuery](https://jquery.com)
-* [Laravel](https://laravel.com)
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
-
-### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-
-### Installation
-
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-   ```sh
-   git clone https://github.com/your_username_/Project-Name.git
-   ```
-3. Install NPM packages
-   ```sh
-   npm install
-   ```
-4. Enter your API in `config.js`
-   ```JS
-   const API_KEY = 'ENTER YOUR API';
-   ```
-
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-See the [open issues](https://github.com/othneildrew/Best-README-Template/issues) for a list of proposed features (and known issues).
-
-
-
-<!-- CONTRIBUTING -->
-## Contributing
-
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-
-
-<!-- LICENSE -->
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
-
-Project Link: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
-
-
-
-<!-- ACKNOWLEDGEMENTS -->
-## Acknowledgements
-* [GitHub Emoji Cheat Sheet](https://www.webpagefx.com/tools/emoji-cheat-sheet)
-* [Img Shields](https://shields.io)
-* [Choose an Open Source License](https://choosealicense.com)
-* [GitHub Pages](https://pages.github.com)
-* [Animate.css](https://daneden.github.io/animate.css)
-* [Loaders.css](https://connoratherton.com/loaders)
-* [Slick Carousel](https://kenwheeler.github.io/slick)
-* [Smooth Scroll](https://github.com/cferdinandi/smooth-scroll)
-* [Sticky Kit](http://leafo.net/sticky-kit)
-* [JVectorMap](http://jvectormap.com)
-* [Font Awesome](https://fontawesome.com)
+ 
+Among the sequences generated by RepeatModeler, some are associated with identities and others are not. The script [repeatmodeler_parse.pl](http://www.hrt.msu.edu/uploads/535/78637/CRL_Scripts1.0.tar.gz) separates elements without identities into repeatmodeler_unknowns and the others in repeatmodeler_identities.
+* Finally the candidate duplication removal assisted using  [seqket](https://bioinf.shenwei.me/seqkit/) rmdup. 
+* Filtered library used as an input for [RepeatMasker](http://www.repeatmasker.org/RepeatMasker.html) To estimate Transposable elements in the genome.
 
 
 
 
 
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/othneildrew/Best-README-Template.svg?style=for-the-badge
-[contributors-url]: https://github.com/othneildrew/Best-README-Template/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/othneildrew/Best-README-Template.svg?style=for-the-badge
-[forks-url]: https://github.com/othneildrew/Best-README-Template/network/members
-[stars-shield]: https://img.shields.io/github/stars/othneildrew/Best-README-Template.svg?style=for-the-badge
-[stars-url]: https://github.com/othneildrew/Best-README-Template/stargazers
-[issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=for-the-badge
-[issues-url]: https://github.com/othneildrew/Best-README-Template/issues
-[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=for-the-badge
-[license-url]: https://github.com/othneildrew/Best-README-Template/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/othneildrew
-[product-screenshot]: images/screenshot.png
+> **Note:** The **Synchronize now** button is disabled if you have no file to synchronize.
+
+
+
+
+# References
+
+
+MitFinder :https://bmcmedgenomics.biomedcentral.com/articles/10.1186/s12920-018-0418-y
+HelitronScanner: https://www.pnas.org/content/111/28/10263
+> Before starting to publish, you must link an account in the **Publish** sub-menu.
+
+```
