@@ -1,24 +1,23 @@
-# # Repeat Library Construction
+# Repeat Library Construction
 
 
 To construct reliable and comprehensive repeat libraries is a challenging task due to the variation in repeat structure and the difficulty of assembling repeats in genome sequences. As many elements vary considerably in genetic structure and sequence, the only means of achieving reliable results when identifying and annotating TEs is to practice complementary approaches. A flowchart describing our overall approach to TE identification is given in Fig. below. The specific methods for each type are detailed below. We employ **de novo** signature-based detection programs that rely upon prior knowledge concerning the sharing between different TEs of standard architectural features necessary for the process of transposition. 
 Examples of classification according to similarity to known TEs include records in databases like **Repbase** and protein profiles retrieved from the **Pfam** database. Unfortunately, only well-described TEs that have a robust structural signature can be discovered by these methods. Some TEs do not have such characteristics and thus cannot be distinguished by this approach. In contrast to homology-based methods, signature-based methods are less biased by similarity to the set of known elements.
 
 ![Pipeline](https://github.com/ohan-Bioinfo/Identification-of-TEs/blob/f21ea5ff79128c616b542adc063d3b6991c4f15d/figure_1.jpg)
-## Class 1
+# Class 1
 ### LTR  (long terminal repeat) retrotransposons
 
-* In the animal genomes characterized so far, LTR retrotransposons represent the largest genomic mass among all repeats. As a result, it is very important to collect this type of element with high confidence. 
-*  Here, the elements are collected using  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html)  and filtered by  [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html)  LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 \citep{wheelernhmmer2013} and a set of TE-related pHMMs we provided from Pfam and GyDB \citep{finn2013pfam,llorens2010gypsy}.
-*  and other custom programs. Both LTRharvest and LTRdigest are in a package called  [GenomeTools](https://www.computer.org/csdl/trans/tb/2013/03/ttb2013030645-abs.html).
+LTR retrotransposons represent the largest genomic mass among all repeats. As a result, it is very important to collect this type of element with high confidence. Here, the elements are collected using  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html)  and filtered by  [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html)  LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 and a set of TE-related pHMMs we provided from Pfam and GyDB. and other custom programs. Both LTRharvest and LTRdigest are in a package called  [GenomeTools](https://www.computer.org/csdl/trans/tb/2013/03/ttb2013030645-abs.html).
 
+
+**creating suffix array**
 Commands:
-* creating suffix array
  ```sh
 gt suffixerator -db Input.fna -indexname Input.fna.index -dna -tis -suf -lcp -des -ssp
 ```
-### LTRharvest
-searches the input sequence for direct repeats (LTRs) that are separated by a given distance (default 1 kb) and outside of which are apparent target site duplications (TSDs). Candidates distinguished by  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html)  were then passed to [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html).
+### [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html) 
+Searches the input sequence for direct repeats (LTRs) that are separated by a given distance (default 1 kb) and outside of which are apparent target site duplications (TSDs). Candidates distinguished by  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html) .
  ```sh
 gt ltrharvest -similar 0.00 -index Input.fna.index -gff3 Input.fna.ltrharvest.out.gff -seqids yes -v yes -mintsd 4 -maxtsd 20 -xdrop 5 -mat 2 -mis -2 -ins -3 -del -3 -minlenltr 100 -maxlenltr 1000 -mindistltr 100 -maxdistltr 15000 -vic 60
 ```
@@ -37,24 +36,24 @@ gt ltrharvest -similar 0.00 -index Input.fna.index -gff3 Input.fna.ltrharvest.ou
 * -v: verbose mode
 * -seqids: use sequence descriptions instead of sequence numbers in GFF3 output
 * -gff3: specify GFF3 outputfilename
-### LTRdigest 
+### [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html) 
 LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 and a set of TE-related pHMMs we provided from  [Pfam](http://pfam.xfam.org/) and  [GyDB](https://gydb.org/index.php/Main_Page).
  ```sh
 gt -j 20 ltrdigest -matchdescstart -outfileprefix Input.fna.LTRdigest -hmms Dfam.hmms -seqfile Input.fna
 ```
-* -matchdescstart: exactly match the sequence descriptions from the input files for the desired sequence IDs (in GFF3) from the beginning to the first whitespace
-* -outfileprefix: prefix for output files (e.g. 'foo' will create files called 'foo_*.csv' and 'foo_*.fas') Omit this option for GFF3 output only.
-* -hmms: profile HMM models for domain detection (separate by spaces, finish with --) in HMMER3 format Omit this option to disable pHMM search.
-* -seqfile: set the sequence file from which to take the sequences Began extracting LTR_retrotransposon sequences from LTRharvest GFF
+* -matchdescstart: exactly match the sequence descriptions from the input files for the desired sequence IDs (in GFF3) from the beginning to the first whitespace.
+* -outfileprefix: prefix for output files (e.g. 'foo' will create files called 'foo_*.csv' and 'foo_*.fas').
+* -hmms: profile HMM models for domain detection in HMMER3 format.
+* -seqfile: set the sequence file from which to take the sequences Began extracting LTR_retrotransposon sequences from LTRharvest GFF.
 
 **Began extracting LTR_retrotransposon sequences from LTRharvest GFF**
+
+[bedtools](https://bedtools.readthedocs.io/en/latest/)
 ```sh
 bedtools getfasta -fi Input.fna -s -bed Input.LTRharvest_LTR_retrotransposons.gff > Input.LTRharvest_LTR_retrotransposons.fasta 
 ```
-#### Classification
-* Dfam Classification
-Using [HMMER](http://hmmer.org/)
-[Dfma](https://dfam.org/home) Data base.
+## Classification
+* Dfam Classification Using [HMMER](http://hmmer.org/) ([Dfma)](https://dfam.org/home) Data base.
 
  ```sh
 nhmmer --tblout DfamClassification/Input.fna.nhmmer_DfamHits.table --incE 1e-05 -E 10 --cpu 20 Dfam_ERV_LTR.hmm LTRharvest_LTR_retrotransposons.fasta 
@@ -75,8 +74,7 @@ gffAddAttr.py -gff Input.fna.LTRdigest.withORFs_gt_300bp.gff -attr dfamClassific
 Using [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) (Basic Local Alignment Search Tool)
 [RepBase](https://www.girinst.org/repbase/) data base.
 ```sh
-tblastx -db Repbase_ERV_LTR.fasta -query Input.LTRharvest_LTR_retrotransposons.fasta -evalue 1e-05 -outfmt "7 qseqid sseqid pident length mismatch gapopen qst
-art qend sstart send evalue bitscore sstrand" -num_threads 20 -max_hsps 25 Output.fna.tblastx_Repbase.tab 
+tblastx -db Repbase_ERV_LTR.fasta -query Input.LTRharvest_LTR_retrotransposons.fasta -evalue 1e-05 -outfmt "7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sstrand" -num_threads 20 -max_hsps 25 Output.fna.tblastx_Repbase.tab 
 ```
  Extracting best hits from tblastx on Repbase results, using [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py)
 ```sh
@@ -84,7 +82,7 @@ best_blast_hit.py < Output.fna.tblastx_Repbase.tab > Output.fna.LTR_retrotranspo
 ```
 
 
-### Non-LTR (long terminal repeat) retrotransposons
+## Non-LTR (long terminal repeat) retrotransposons
 Here, we began with the recognized genomic coordinates of LTR-RTs identified in the previous step. These candidates were masked with maskfasta from [BedTools](https://bedtools.readthedocs.io/en/latest/content/installation.html) to avoid conflicts or duplicate hits. 
 
 Next, open reading frame sequences were extracted from the masked genome by applying the getorf tool from [EMBOSS v6.4.0.0.](http://emboss.open-bio.org/html/use/ch02s07.html) The minimum ORF size was set to 500 bp in anticipation of detecting the apyrimidinic endonuclease (APE) gene (which is 600--800 bp in 97\% of inspected non-LTR elements)
@@ -93,7 +91,7 @@ Next, open reading frame sequences were extracted from the masked genome by appl
 ```sh
 mgescan nonltr <genome_dir> [--output=<data_dir>]
 ```
-## Class 2
+# Class 2
 All eukaryotic DNA transposons reported so far belong to a single category of elements which use the so-called ``cut-and-paste'' transposition mechanism, except Helitrons, which transpose by rolling-circle replication. Here, we employed methodologies for the detection of DNA transposons in the studied genomes based on the initial identification of TIR, and non-autonomous elements such as miniature inverted-repeat elements (MITEs) and helitron. 
 
 
