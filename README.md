@@ -14,28 +14,35 @@ LTR retrotransposons represent the largest genomic mass among all repeats. As a 
 **creating suffix array**
 Commands:
  ```sh
-gt suffixerator -db Input.fna -indexname Input.fna.index -dna -tis -suf -lcp -des -ssp
+gt suffixerator -db Input.fna -indexname Input.fna.index -dna -suf -lcp -des -ssp
 ```
+* -dna:          input is DNA sequence
+* -suf:          output suffix array (suftab) to file
+* -lcp:          output lcp table (lcptab) to file
+* -des:          output sequence descriptions to file
+* -ssp:          output sequence separator positions to file
+
 ### [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html) 
 Searches the input sequence for direct repeats (LTRs) that are separated by a given distance (default 1 kb) and outside of which are apparent target site duplications (TSDs). Candidates distinguished by  [LTRharvest](http://www.genometools.org/tools/gt_ltrharvest.html) .
  ```sh
 gt ltrharvest -similar 0.00 -index Input.fna.index -gff3 Input.fna.ltrharvest.out.gff -seqids yes -v yes -mintsd 4 -maxtsd 20 -xdrop 5 -mat 2 -mis -2 -ins -3 -del -3 -minlenltr 100 -maxlenltr 1000 -mindistltr 100 -maxdistltr 15000 -vic 60
 ```
-* -minlenltr: specify minimum length for each LTR
-* -maxlenltr: specify maximum length for each LTR
-* -mindistltr: specify minimum distance of LTR startpositions 
-* -maxdistltr: specify maximum distance of LTR startpositions
-* -similar: specify similarity threshold in range 
-* -mintsd: specify minimum length for each TSD
-* -maxtsd: specify maximum length for each TSD
-* -vic: specify the number of nucleotides (to the left and to the right that will be searched for TSDs and/or motifs around 5' and 3' boundary of predicted LTR retrotransposons
-* -mat: specify matchscore for extension-alignment
-* -mis: specify mismatchscore for extension-alignment
-* -ins: specify insertionscore for extension-alignment
-* -del: specify deletionscore for extension-alignment
-* -v: verbose mode
-* -seqids: use sequence descriptions instead of sequence numbers in GFF3 output
-* -gff3: specify GFF3 outputfilename
+* -minlenltr: specify minimum length for each LTR.
+* -maxlenltr: specify maximum length for each LTR.
+* -mindistltr: specify minimum distance of LTR startpositions.
+* -maxdistltr: specify maximum distance of LTR startpositions.
+* -similar: specify similarity threshold in range.
+* -mintsd: specify minimum length for each TSD.
+* -maxtsd: specify maximum length for each TSD.
+* -vic: specify the number of nucleotides (to the left and to the right that will be searched for TSDs and/or motifs around 5' and 3' boundary of predicted LTR retrotransposons.
+* -mat: specify matchscore for extension-alignment.
+* -mis: specify mismatchscore for extension-alignment.
+* -ins: specify insertionscore for extension-alignment.
+* -del: specify deletionscore for extension-alignment.
+* -v: verbose mode.
+* -seqids: use sequence descriptions instead of sequence numbers in GFF3 output.
+* -gff3: specify GFF3 outputfilename.
+
 ### [LTRdigest](http://www.genometools.org/tools/gt_ltrdigest.html) 
 LTRdigest searches for homologs in the putative LTR-RTs using HMMER3 and a set of TE-related pHMMs we provided from  [Pfam](http://pfam.xfam.org/) and  [GyDB](https://gydb.org/index.php/Main_Page).
  ```sh
@@ -50,46 +57,101 @@ gt -j 20 ltrdigest -matchdescstart -outfileprefix Input.fna.LTRdigest -hmms Dfam
 
 [bedtools](https://bedtools.readthedocs.io/en/latest/)
 ```sh
+Usage: bedtools getfasta [OPTIONS] -fi <fasta> -bed <bed/gff/vcf>
+
 bedtools getfasta -fi Input.fna -s -bed Input.LTRharvest_LTR_retrotransposons.gff > Input.LTRharvest_LTR_retrotransposons.fasta 
 ```
+* -fi  Input FASTA file
+* -fo  Output file (opt., default is STDOUT
+* -bed  BED/GFF/VCF file of ranges to extract from -fi
+* -s  Force strandedness. If the feature occupies the antisense, strand, the sequence will be reverse complemented.
 ## Classification
-* Dfam Classification Using [HMMER](http://hmmer.org/) ([Dfma)](https://dfam.org/home) Data base.
+#### Dfam Classification
+ Using [HMMER](http://hmmer.org/) ([Dfma)](https://dfam.org/home) Data base.
 
  ```sh
+ Usage: nhmmer [options] <query hmmfile|alignfile|seqfile> <target seqfile>
+ 
 nhmmer --tblout DfamClassification/Input.fna.nhmmer_DfamHits.table --incE 1e-05 -E 10 --cpu 20 Dfam_ERV_LTR.hmm LTRharvest_LTR_retrotransposons.fasta 
 ```
-Began extracting best hits from nhmmer on Dfam results
- [nhmmer_table2columns.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/nhmmer_table2columns.py)
- ```sh
- scripts/nhmmer_table2columns.py < Input.fna.nhmmer_DfamHits.table > Input.LTR_retrotransposon_DfamBestHits.tab
- ```
-Adding best hits from nhmmer on Dfam results to LTRdigest GFF
+* --tblout <f> : save parseable table of hits to file
+* --incE <x> : consider sequences <= this E-value threshold as significant  [0.01]  (x>0)
+* -E <x> : report sequences <= this E-value threshold in output  [10.0]  (x>0)
+ ##### Extracting best hits from nhmmer on Dfam results
 
+ ```sh
+nhmmer_table2columns.py < Input.fna.nhmmer_DfamHits.table > Input.LTR_retrotransposon_DfamBestHits.tab
+ ```
+  [nhmmer_table2columns.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/nhmmer_table2columns.py)
+##### Adding best hits from nhmmer on Dfam results to LTRdigest GFF
  ```sh
 gffAddAttr.py -gff Input.fna.LTRdigest.withORFs_gt_300bp.gff -attr dfamClassification -map Input.fna.LTR_retrotransposon_DfamBestHits.tab -mapKey ID -restrictType LTR_retrotransposon -replaceIfNone > Input.fna.LTRdigest.withDfam.gff 
 ```
 [gffAddAttr.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/gffAddAttr.py)
 
-* RepBase Classification 
-Using [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) (Basic Local Alignment Search Tool)
-[RepBase](https://www.girinst.org/repbase/) data base.
+#### RepBase Classification 
+Using [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=Download) (Basic Local Alignment Search Tool) [RepBase](https://www.girinst.org/repbase/) data base.
 ```sh
 tblastx -db Repbase_ERV_LTR.fasta -query Input.LTRharvest_LTR_retrotransposons.fasta -evalue 1e-05 -outfmt "7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sstrand" -num_threads 20 -max_hsps 25 Output.fna.tblastx_Repbase.tab 
 ```
- Extracting best hits from tblastx on Repbase results, using [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py)
+* -db: BLAST database name
+* -evalue: Expectation value (E) threshold for saving hits
+* -outfmt: 7 can be additionally configured to produce a custom format specified by space delimited format specifiers, or by a token specified by the delim keyword.
+* -max_hsps: Set maximum number of HSPs per subject sequence to save for each query
+
+
+
+ ##### Extracting best hits from tblastx on Repbase results, using [best_blast_hit.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/best_blast_hit.py).
 ```sh
 best_blast_hit.py < Output.fna.tblastx_Repbase.tab > Output.fna.LTR_retrotransposon_RepbaseBestHits.tab
 ```
 
 
+##### adding best hits from tblastx on Repbase results to LTRdigest GFF:
+```sh
+gffAddAttr.py -gff Input.LTRdigest.withDfam.gff -attr repbaseClassification -map Input.LTR_retrotransposon_RepbaseBestHits.tab -mapKey ID -restrictType LTR_retrotransposon -replaceIfNone > Input.LTRdigest.withDfam.withRepbase.gff 
+```
+[gffAddAttr.py](https://github.com/mcsimenc/PhyLTR/blob/master/scripts/gffAddAttr.py)
+
+
+
+Further details regarding Class1 TEs Identification, classification, divergent, pleasee install the script.
+[![DOI](https://doi.org/10.5281/zenodo.4256534)]
+
+> **Note:** The **Full pipeline depsited in zenodo** Further details regarding Class1 TEs Identification, classification, divergent, scripts. please install the script.
+[![DOI](https://doi.org/10.5281/zenodo.4256534)].
+
 ## Non-LTR (long terminal repeat) retrotransposons
 Here, we began with the recognized genomic coordinates of LTR-RTs identified in the previous step. These candidates were masked with maskfasta from [BedTools](https://bedtools.readthedocs.io/en/latest/content/installation.html) to avoid conflicts or duplicate hits. 
-
-Next, open reading frame sequences were extracted from the masked genome by applying the getorf tool from [EMBOSS v6.4.0.0.](http://emboss.open-bio.org/html/use/ch02s07.html) The minimum ORF size was set to 500 bp in anticipation of detecting the apyrimidinic endonuclease (APE) gene (which is 600--800 bp in 97\% of inspected non-LTR elements)
-
-[MGEScan-non-LTR](https://github.com/COL-IU/mgescan) and hmmsearch from HMMER 3.0 with two separate hidden Markov model (HMM) profiles, one for the reverse transcriptase (RT) gene and one for the endonuclease (APE) gene, both of which are well conserved among non-LTR TEs.
 ```sh
-mgescan nonltr <genome_dir> [--output=<data_dir>]
+Usage: bedtools getfasta [OPTIONS] -fi <fasta> -bed <bed/gff/vcf>
+
+bedtools maskfasta -fi InputGenome.fa -bed LTRdigestClassifiedNoFP.gff -fo InputGenome_Msked.fa
+ ```
+Next, open reading frame sequences were extracted from the masked genome by applying the getorf tool from [EMBOSS v6.4.0.0.](http://emboss.open-bio.org/html/use/ch02s07.html) The minimum ORF size was set to 500 bp in anticipation of detecting the apyrimidinic endonuclease (APE) gene (which is 600--800 bp in 97\% of inspected non-LTR elements)
+```sh
+getorf -sequence InputGenome_Msked.fa -outseq InputGenome_Msked.fa -minsize 500 -find 2 
+ ```
+* -minsize: Minimum nucleotide size of ORF
+* -find: 2 (Nucleic sequences between STOP codons)
+
+the exploration of the genomic sequences with [MGEScan-non-LTR](https://github.com/COL-IU/mgescan) , which identifies and classifies non-LTR TEs in genomic sequences using probabilistic models based on the structure of the 12 established non-LTR TE clades. More precisely, we used MGEScan-non-LTR and hmmsearch from [HMMER](http://hmmer.org/)  with two separate hidden Markov model (HMM) profiles, one for the reverse transcriptase (RT) gene and one for the endonuclease (APE) gene, both of which are well conserved among non-LTR TEs.
+
+
+##### Create the Python virtual environment for MGEScan
+```sh
+virtualenv $MGESCAN_VENV
+source $MGESCAN_VENV/bin/activate
+```
+##### Installation:
+```sh
+git clone https://github.com/COL-IU/mgescan.git
+cd mgescan
+python setup.py install
+```
+##### Usage:
+```sh
+ mgescan nonltr <genome_dir> [--output=<data_dir>] [--mpi=<num>]
 ```
 # Class 2
 All eukaryotic DNA transposons reported so far belong to a single category of elements which use the so-called ``cut-and-paste'' transposition mechanism, except Helitrons, which transpose by rolling-circle replication. Here, we employed methodologies for the detection of DNA transposons in the studied genomes based on the initial identification of TIR, and non-autonomous elements such as miniature inverted-repeat elements (MITEs) and helitron. 
@@ -98,8 +160,11 @@ All eukaryotic DNA transposons reported so far belong to a single category of el
 
 ### [MiteFinder](https://github.com/jhu99/miteFinder)
 ```sh
-miteFinder -input CInput.fna -output Output_Mite.fa -pattern_scoring pattern_scoring.txt -threshold 0.5
+miteFinder -input Input.fna -output Output_Mite.fa -pattern_scoring pattern_scoring.txt -threshold 0.5
 ```
+* -threshold  Threshold of removing mite candidates with low-confidence score.
+* -pattern_scoring  The path of a scoring file.
+
 **Clustering**
 ```sh
 CD-Hit -i Output_Mite.fa -o Clustered-Output_Mite.fa -c 0.8
@@ -176,8 +241,8 @@ Among the sequences generated by RepeatModeler, some are associated with identit
 # References
 
 
-MitFinder :https://bmcmedgenomics.biomedcentral.com/articles/10.1186/s12920-018-0418-y
-HelitronScanner: https://www.pnas.org/content/111/28/10263
+* MitFinder :https://bmcmedgenomics.biomedcentral.com/articles/10.1186/s12920-018-0418-y
+* HelitronScanner: https://www.pnas.org/content/111/28/10263
 > Before starting to publish, you must link an account in the **Publish** sub-menu.
 
 ```
